@@ -1,0 +1,18 @@
+apply plugin: 'java'
+//apply plugin: 'eclipse'
+//apply plugin: 'java-library'
+
+version = '0.1.0'
+
+repositories {
+   mavenCentral()
+   //jcenter()
+}
+
+dependencies {
+	implementation fileTree(include: ['*.jar'], dir: 'lib') // <- questo non va
+	implementation 'org.familysearch.gedcom:gedcom:1.11.0'
+	implementation 'org.slf4j:slf4j-api:1.7.29'
+	implementation 'com.google.code.gson:gson:2.8.6'
+	implementation 'commons-io:commons-io:2.6'
+}
