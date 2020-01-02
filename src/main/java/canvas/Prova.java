@@ -4,6 +4,7 @@ import static graph.gedcom.Util.pr;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.FlowLayout;
@@ -61,10 +62,15 @@ public class Prova {
 		//box.setLayout(null); // richiede di settare posizione e DIMENSIONI dei figli
 		box.setBackground(Color.green);
 		
+		JScrollPane scrollPane = new JScrollPane(box);
+		//scrollPane.setLayout(new ScrollPaneLayout()); è di default
+		frame.getContentPane().add(scrollPane);
+		//frame.pack();
+		frame.setVisible(true);
+		
 		JPanel panel = new JPanel();
 		panel.setBackground(Color.red);
-		panel.setLayout( new BoxLayout(panel,BoxLayout.LINE_AXIS) );
-		
+		panel.setLayout( new BoxLayout(panel,BoxLayout.X_AXIS) );
 		final JButton button1 = new JButton("Primo!!!!..........");
 		panel.add(button1);
 		panel.add(Box.createRigidArea(new Dimension(10,0)));
@@ -73,23 +79,19 @@ public class Prova {
 		//panel.setSize(200, 40);
 		box.add(panel);
 		
-		JScrollPane scrollPane = new JScrollPane(box);
-		//scrollPane.setLayout(new ScrollPaneLayout()); è di default
-		frame.getContentPane().add(scrollPane);
+		//panel.revalidate();
+		panel.doLayout();
+		pr(panel.getWidth(), panel.getHeight());
+		for (Component component : panel.getComponents()) {
+			pr(">>",component.getWidth(), component.getHeight());
+		}
 		
-		//frame.pack();
-		frame.setVisible(true);
-		Dimension dim = panel.getSize();
-		pr(dim.height, dim.height);
-		
-
 		button1.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				box.setLayout(null);
 				//box.setSize(200,700);
 				box.setPreferredSize(new Dimension(200,700));
-				Dimension dim = panel.getSize();
 				pr(panel.getWidth(), panel.getHeight());
 				panel.setLocation(20, 100);
 			}
