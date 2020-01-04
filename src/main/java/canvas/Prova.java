@@ -22,6 +22,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.OverlayLayout;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.ScrollPaneLayout;
 
@@ -58,9 +59,10 @@ public class Prova {
 		//frame.getContentPane().setLayout(new GroupLayout(frame.getContentPane())); no
 		
 		JPanel box = new JPanel();
-		box.setLayout(new BoxLayout(box,BoxLayout.X_AXIS)); // ok
-		//box.setLayout(null); // richiede di settare posizione e DIMENSIONI dei figli
-		box.setBackground(Color.green);
+		//box.setLayout(new BoxLayout(box,BoxLayout.X_AXIS)); // ok
+		box.setLayout( new OverlayLayout(box));
+		//box.setLayout(null); // richiede di settare posizione e DIMENSIONI dei componenti figli
+		box.setBackground(Color.gray);
 		
 		JScrollPane scrollPane = new JScrollPane(box);
 		//scrollPane.setLayout(new ScrollPaneLayout()); è di default
@@ -80,6 +82,7 @@ public class Prova {
 		box.add(panel);
 		
 		//panel.revalidate();
+		//box.validate();
 		panel.doLayout();
 		pr(panel.getWidth(), panel.getHeight());
 		for (Component component : panel.getComponents()) {
@@ -89,7 +92,7 @@ public class Prova {
 		button1.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				box.setLayout(null);
+				//box.setLayout(null);
 				//box.setSize(200,700);
 				box.setPreferredSize(new Dimension(200,700));
 				pr(panel.getWidth(), panel.getHeight());

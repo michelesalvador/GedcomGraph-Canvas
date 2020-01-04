@@ -18,6 +18,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.OverlayLayout;
 import javax.swing.border.Border;
 import org.apache.commons.io.FileUtils;
 import org.folg.gedcom.model.Gedcom;
@@ -25,13 +26,14 @@ import org.folg.gedcom.model.Person;
 import org.folg.gedcom.parser.JsonParser;
 import org.folg.gedcom.parser.ModelParser;
 import graph.gedcom.AncestryNode;
-import graph.gedcom.AncestryNode.Ancestor;
-import graph.gedcom.Card;
+import graph.gedcom.MiniCard;
 import graph.gedcom.UnitNode;
 import graph.gedcom.Graph;
+import graph.gedcom.IndiCard;
 import graph.gedcom.Util;
 import graph.gedcom.Line;
 import graph.gedcom.Node;
+import graph.gedcom.ProgenyNode;
 import static graph.gedcom.Util.pr;
 
 public class Diagram {
@@ -52,14 +54,15 @@ public class Diagram {
 		frame.setSize(sizeHoriz, sizeVert);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		box = new JPanel();
-		box.setLayout(new BoxLayout(box, BoxLayout.X_AXIS));
+		//box.setLayout(new BoxLayout(box, BoxLayout.X_AXIS));
+		box.setLayout( new OverlayLayout(box));	// Allow absolute positioning of nodes
 		box.setBackground(Color.darkGray);
 		JScrollPane scrollPane = new JScrollPane(box);
 		frame.getContentPane().add(scrollPane);
 		frame.setVisible(true);
 
 		// Parse a Gedcom file
-		File file = new File("src/main/resources/family.ged");
+		File file = new File("src/main/resources/single.ged");
 		Gedcom gedcom = new ModelParser().parseGedcom(file);
 		gedcom.createIndexes();
 
@@ -71,14 +74,14 @@ public class Diagram {
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
 		graph.showFamily(0).maxAncestors(2);
-		fulcrumId = "I1";/**/
+		fulcrumId = "I17";/**/
 
 		paintDiagram();
 	}
 
 	public static void main(String[] args) throws Exception {
-		new Diagram();
-		// new Prova();
+		 new Diagram();
+		//new Prova();
 	}
 
 	private void paintDiagram() {
@@ -89,28 +92,37 @@ public class Diagram {
 		}
 
 		// Place the nodes on the canvas in random position
-		box.setLayout(new BoxLayout(box, BoxLayout.X_AXIS)); // This layout let the nodes auto-size
+		//box.setLayout(new BoxLayout(box, BoxLayout.X_AXIS)); // This layout let the nodes auto-size
 		for (Node node : graph.getNodes()) {
 			if (node instanceof UnitNode)
-				box.add(new GraphicUnitNode((UnitNode) node));
+				box.add(new GraphicUnitNodeBox((UnitNode) node));
 			else if (node instanceof AncestryNode)
 				box.add(new GraphicAncestry((AncestryNode) node, false));
 		}
 		box.validate(); // To calculate the dimensions of child componenets
 
-		// Get the dimensions of each card
 		for (Component compoNode : box.getComponents()) {
-			compoNode.validate();
-			if (compoNode instanceof GraphicUnitNode) {
-				// ((GraphicUnitNode)compoNode).validate();
-				for (Component compoCard : ((GraphicUnitNode) compoNode).getComponents()) {
-					if (compoCard instanceof GraphicCardContainer) {
-						GraphicCardContainer graphicCard = (GraphicCardContainer) compoCard;
+			if (compoNode instanceof GraphicUnitNodeBox) {
+				GraphicUnitNode graphicUnitNode = ((GraphicUnitNodeBox)compoNode).graphicUnitNode;
+				// Get bond width
+				if(graphicUnitNode.node.isCouple()) {
+					Bond bond = (Bond) graphicUnitNode.getComponent(0);
+					graphicUnitNode.node.bondWidth = bond.getWidth();
+				}
+				// Get the dimensions of each card
+				for (Component compoCard : graphicUnitNode.getComponents()) {
+					if (compoCard instanceof GraphicCardBox) {
+						GraphicCardBox graphicCard = (GraphicCardBox) compoCard;
 						graphicCard.card.width = graphicCard.getWidth();
 						graphicCard.card.height = graphicCard.getHeight();
 					}
 				}
-			} // And the dimensions of each ancestry node
+				ProgenyNode progeny = graphicUnitNode.node.getProgeny();
+				if (progeny != null) {
+					GraphicProgeny graphicProgeny = ((GraphicUnitNodeBox)compoNode).graphicProgeny;
+					progeny.width = graphicProgeny.getWidth();
+				}
+			} // Get the dimensions of each ancestry node
 			else if (compoNode instanceof GraphicAncestry) {
 				GraphicAncestry ancestry = (GraphicAncestry) compoNode;
 				// ancestry.validate();
@@ -118,7 +130,7 @@ public class Diagram {
 				ancestry.node.height = compoNode.getHeight();
 				// Additionally set the relative X center
 				if (ancestry.node.isCouple())
-					ancestry.node.horizontalCenter = ancestry.getComponent(0).getWidth() + Util.GAP / 2;
+					ancestry.node.horizontalCenter = ancestry.getComponent(0).getWidth() + ancestry.getComponent(1).getWidth() / 2;
 				else
 					ancestry.node.horizontalCenter = compoNode.getWidth() / 2;
 			}
@@ -127,14 +139,28 @@ public class Diagram {
 		// Let the diagram calculate positions of Nodes and Lines
 		graph.arrange();
 
-		box.setLayout(null); // This layout let the nodes in absolute position
+		//box.setLayout(null); // This non-layout let the nodes in absolute position
 		box.setPreferredSize(new Dimension(graph.width + shiftX * 2, graph.height + shiftY * 2));
 
 		// Place the nodes in definitve position on the canvas
 		for (Component compoNode : box.getComponents()) {
-			if (compoNode instanceof GraphicUnitNode) {
-				UnitNode unitNode = (UnitNode) ((GraphicUnitNode) compoNode).node;
+			if (compoNode instanceof GraphicUnitNodeBox) {
+				UnitNode unitNode = ((GraphicUnitNodeBox) compoNode).unitNode;
 				compoNode.setLocation(unitNode.x + shiftX, unitNode.y + shiftY);
+				compoNode.setSize(unitNode.width, compoNode.getHeight()); 
+				//compoNode.setSize(unitNode.width, compoNode.getHeight());
+				//
+				GraphicUnitNode graphicUnitNode = ((GraphicUnitNodeBox) compoNode).graphicUnitNode;
+				if (graphicUnitNode.node.isCouple()) {
+					graphicUnitNode.setSize(unitNode.width, unitNode.height); // ok ma non riimensiona il parent
+					//graphicUnitNode.setPreferredSize(new Dimension(unitNode.width, unitNode.height));
+					Bond bond = (Bond) graphicUnitNode.getComponent(0);
+					//bond.setAlignmentX(graphicUnitNode.node.husband.width); no
+					//bond.setAlignmentX(Component.RIGHT_ALIGNMENT); nno
+					bond.setLocation(graphicUnitNode.node.husband.width, unitNode.height/2);
+					Component wife = graphicUnitNode.getComponent(2);
+					wife.setLocation(graphicUnitNode.node.husband.width+bond.getWidth(),wife.getY()); //ok					
+				}
 			} else if (compoNode instanceof GraphicAncestry) {
 				AncestryNode ancestry = (AncestryNode) ((GraphicAncestry) compoNode).node;
 				compoNode.setLocation(ancestry.x + shiftX, ancestry.y + shiftY);
@@ -148,67 +174,65 @@ public class Diagram {
 		// box.revalidate(); // Make the cards appear on the canvas
 		box.repaint(); // Redraw all the canvas
 	}
-
-	// Graphical rappresentation of a unit node
-	class GraphicUnitNode extends JPanel {
-
-		UnitNode node;
-
-		GraphicUnitNode(UnitNode node) {
-			this.node = node;
-			setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-			// setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
-			setOpaque(false);
-			// Create the cards
-			if (node.husband != null)
-				add(new GraphicCardContainer(node.husband));
-			if (node.isCouple())
-				add(Box.createRigidArea(new Dimension(Util.MARGIN, 0)));
-			if (node.wife != null)
-				add(new GraphicCardContainer(node.wife));
-		}
-
-		@Override
-		protected void paintComponent(Graphics g) {
-			node.width = getWidth();
-			node.height = getHeight();
-			if (node.isCouple()) {
-				// Draw the vertical line from marriage
-				if (node.guardGroup != null && !node.guardGroup.getYouths().isEmpty()) {
-					g.setColor(Color.lightGray);
-					g.drawLine(node.centerXrel(), node.centerYrel(), node.centerXrel(), node.height);
-				}
-				// Draw the marriage
-				if (node.marriageDate != null) {
-					int w = 25;
-					int h = 17;
-					int x = node.centerXrel() - w / 2;
-					int y = node.centerYrel() - h / 2;
-					g.setColor(new Color(0xDDBBFF));
-					g.fillOval(x, y, w, h);
-					g.setColor(Color.black);
-					g.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-					g.drawString(node.marriageYear(), x, y + 12);
-				} else {
-					// Draw a simple horizontal line
-					g.setColor(Color.lightGray);
-					g.drawLine(node.husband.width, node.centerYrel(), node.husband.width + Util.MARGIN,
-							node.centerYrel());
-				}
-			}
-		}
-	}
-
-	// Container for card with ancestors on top
-	class GraphicCardContainer extends JPanel {
-		
-		Card card;
-
-		GraphicCardContainer(Card card) {
-			this.card = card;
+	
+	// Container for unit node with progeny below
+	class GraphicUnitNodeBox extends JPanel {
+		UnitNode unitNode;
+		GraphicUnitNode graphicUnitNode;
+		GraphicProgeny graphicProgeny;
+		GraphicUnitNodeBox(UnitNode unitNode) {
+			this.unitNode = unitNode;
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setOpaque(false);
 			setBorder(BorderFactory.createLineBorder(Color.red, 1));
+			// setBackground( Color.green );
+
+			graphicUnitNode = new GraphicUnitNode(unitNode);
+			graphicUnitNode.setAlignmentX(CENTER_ALIGNMENT);
+			add(graphicUnitNode);
+			ProgenyNode progeny = unitNode.getProgeny();
+			if (progeny != null) {
+				add(Box.createRigidArea(new Dimension(0, Util.GAP)));
+				graphicProgeny = new GraphicProgeny(progeny);
+				//graphicProgeny.setAlignmentX(CENTER_ALIGNMENT);
+				graphicProgeny.setAlignmentX(LEFT_ALIGNMENT);
+				add(graphicProgeny);
+			}
+		}
+	}
+	
+	// Graphical rappresentation of a unit node
+	class GraphicUnitNode extends JPanel {
+		UnitNode node;
+		GraphicUnitNode(UnitNode node) {
+			this.node = node;
+			//setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+			setLayout( new OverlayLayout(this) ); // Admit overlapping of components
+			//this.setSize(node.width+20, node.height);
+			setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
+			setOpaque(false);
+			// Create the cards
+			if (node.isCouple())
+				add(new Bond(node));	
+			if (node.husband != null)
+				add(new GraphicCardBox(node.husband));
+			if (node.wife != null) {
+				GraphicCardBox wife = new GraphicCardBox(node.wife);
+				//wife.setAlignmentX(-50);
+				//wife.setAlignmentY(0.5f);
+				add(wife);
+			}
+		}
+	}
+	
+	// Container for card with ancestors above
+	class GraphicCardBox extends JPanel {
+		IndiCard card;
+		GraphicCardBox(IndiCard card) {
+			this.card = card;
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setOpaque(false);
+			//setBorder(BorderFactory.createLineBorder(Color.red, 1));
 			// setBackground( Color.green );
 
 			if (card.acquired && card.hasAncestry()) {
@@ -224,26 +248,24 @@ public class Diagram {
 		}
 	}
 
-	// Graphical realization of a card
+	// Graphical realization of an individual card
 	class GraphicCard extends JButton {
-
-		Card card;
-
-		GraphicCard(Card card) {
-			super(Util.essence(card.getPerson()));
+		IndiCard card;
+		GraphicCard(IndiCard card) {
+			super(Util.essence(card.person));
 			this.card = card;
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			Color backgroundColor = Color.white;
-			if (card.getPerson().getId().equals(graph.getStartId()))
+			if (card.person.getId().equals(graph.getStartId()))
 				backgroundColor = Color.orange;
 			else if (card.acquired) {
 				backgroundColor = new Color(0xCCCCCC);
 			}
 			setBackground(backgroundColor);
 			Color borderColor = Color.gray;
-			if (Util.sex(card.getPerson()) == 1) {
+			if (Util.sex(card.person) == 1) {
 				borderColor = Color.blue;
-			} else if (Util.sex(card.getPerson()) == 2) {
+			} else if (Util.sex(card.person) == 2) {
 				borderColor = Color.pink;
 			}
 			setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(borderColor, 2),
@@ -252,7 +274,7 @@ public class Diagram {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					box.removeAll();
-					fulcrumId = card.getPerson().getId();
+					fulcrumId = card.person.getId();
 					paintDiagram();
 				}
 			});
@@ -271,25 +293,58 @@ public class Diagram {
 		}
 	}
 
+	class Bond extends JPanel {
+		UnitNode node;
+		Bond(UnitNode unitNode) {
+			node = unitNode;
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			//this.setSize(20, 6); purtroppo inefficace
+			add(Box.createRigidArea(new Dimension(25, 17)));
+		}
+		@Override
+		protected void paintComponent(Graphics g) {
+			if (node.isCouple()) {
+				// Draw the vertical line from marriage
+				if (node.guardGroup != null && !node.guardGroup.getYouths().isEmpty()) {
+					g.setColor(Color.lightGray);
+					g.drawLine(node.centerXrel(), node.centerYrel(), node.centerXrel(), node.height);
+				}
+				// Draw the marriage
+				if (node.marriageDate != null) {
+					int w = 25;
+					int h = 17;
+					int x = 0;
+					int y = 0;
+					g.setColor(new Color(0xDDBBFF));
+					g.fillOval(x, y, w, h);
+					g.setColor(Color.black);
+					g.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+					g.drawString(node.marriageYear(), x, y + 12);
+				} else {
+					// Draw a simple horizontal line
+					g.setColor(Color.lightGray);
+					g.drawLine(0, 0, 25, 0);
+				}
+			}
+		}
+	}
+	
+	// Container for the ancestor minicards
 	class GraphicAncestry extends JPanel {
-
 		AncestryNode node;
-
 		GraphicAncestry(AncestryNode node, boolean acquired) {
 			this.node = node;
 			setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 			// setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
-			// Create the ancestor minicards
-			if (node.foreFather != null)
-				add(new GraphicAncestor(node, true));
+			if (node.miniFather != null)
+				add(new GraphicMiniCard(node.miniFather));
 			if (node.isCouple())
-				add(Box.createRigidArea(new Dimension(Util.GAP, 0)));
-			if (node.foreMother != null)
-				add(new GraphicAncestor(node, false));
-			/*if (acquired)
-				setBorder(BorderFactory.createEmptyBorder(0, 0, Util.TIC, 0));*/
+				add(Box.createRigidArea(new Dimension(20, 0)));
+			if (node.miniMother != null)
+				add(new GraphicMiniCard(node.miniMother));
+			if (acquired)
+				setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
 		}
-
 		@Override
 		protected void paintComponent(Graphics g) {
 			AncestryNode node = (AncestryNode) this.node;
@@ -302,14 +357,29 @@ public class Diagram {
 		}
 	}
 
-	class GraphicAncestor extends JButton {
-		GraphicAncestor(AncestryNode node, boolean male) {
-			super(String.valueOf(((Ancestor) (male ? node.foreFather : node.foreMother)).ancestry));
-			Ancestor ancestor = male ? node.foreFather : node.foreMother;
+	class GraphicProgeny extends JPanel {
+		//ProgenyNode progenyNode;
+		GraphicProgeny(ProgenyNode progenyNode) {
+			//this.progenyNode = progenyNode;
+			setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+			setOpaque(false);
+			setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
+			for( MiniCard miniChild : progenyNode.miniChildren) {
+				add(new GraphicMiniCard(miniChild));
+				//if( progenyNode.miniChildren.get(index)  progenyNode.miniChildren.size())
+				add(Box.createRigidArea(new Dimension(Util.GAP, 0)));
+			}
+			this.remove(this.getComponentCount()-1);
+		}
+	}
+	
+	class GraphicMiniCard extends JButton {
+		GraphicMiniCard(MiniCard miniCard) {
+			super(String.valueOf(miniCard.ancestry));
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			setBackground(Color.white);
 			Border border;
-			if (Util.sex(ancestor.person) == 2)
+			if (Util.sex(miniCard.person) == 2)
 				border = BorderFactory.createLineBorder(Color.pink, 1);
 			else
 				border = BorderFactory.createLineBorder(Color.blue, 1);
@@ -318,7 +388,7 @@ public class Diagram {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					box.removeAll();
-					fulcrumId = ancestor.person.getId();
+					fulcrumId = miniCard.person.getId();
 					paintDiagram();
 				}
 			});
