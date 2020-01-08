@@ -81,8 +81,8 @@ public class Diagram {
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(3).maxUncles(0).displaySiblings(false).maxDescendants(0);
-		fulcrumId = "I14";
+		graph.showFamily(0).maxAncestors(3).maxUncles(3).displaySiblings(true).maxDescendants(3);
+		fulcrumId = "I1";
 
 		paintDiagram();
 	}
@@ -122,10 +122,15 @@ public class Diagram {
 				}
 				// Get the dimensions of each card
 				for (Component compoCard : graphicUnitNode.getComponents()) {
+					IndiCard card = null;
 					if (compoCard instanceof GraphicCardBox) {
-						GraphicCardBox graphicCard = (GraphicCardBox) compoCard;
-						graphicCard.card.width = graphicCard.getWidth();
-						graphicCard.card.height = graphicCard.getHeight();
+						card = ((GraphicCardBox) compoCard).card;
+					} /*else if (compoCard instanceof Asterisk) {
+						card = ((Asterisk) compoCard).card;
+					}*/
+					if(card != null) {
+						card.width = compoCard.getWidth();
+						card.height = compoCard.getHeight();
 					}
 				}
 			} // Get the dimensions of each ancestry node
@@ -202,7 +207,6 @@ public class Diagram {
 			this.unitNode = unitNode;
 			//setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 			setLayout( new OverlayLayout(this) ); // Admit overlapping of components
-			//this.setSize(node.width+20, node.height);
 			setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
 			setOpaque(false);
 			// Create the cards
@@ -210,12 +214,8 @@ public class Diagram {
 				add(new Bond(unitNode));	
 			if (unitNode.husband != null)
 				add(new GraphicCardBox(unitNode.husband));
-			if (unitNode.wife != null) {
-				GraphicCardBox wife = new GraphicCardBox(unitNode.wife);
-				//wife.setAlignmentX(-50);
-				//wife.setAlignmentY(0.5f);
-				add(wife);
-			}
+			if (unitNode.wife != null)
+				add(new GraphicCardBox(unitNode.wife));
 		}
 	}
 	
@@ -229,16 +229,18 @@ public class Diagram {
 			//setBorder(BorderFactory.createLineBorder(Color.red, 1));
 			// setBackground( Color.green );
 
-			if (card.acquired && card.hasAncestry()) {
-				GraphicAncestry ancestry = new GraphicAncestry((AncestryNode) card.origin, true);
-				// ancestry.setAlignmentX(Component.CENTER_ALIGNMENT);
-				add(ancestry);
+			if (card.asterisk) {
+				add(new Asterisk(card));
+			} else {
+				if (card.acquired && card.hasAncestry()) {
+					GraphicAncestry ancestry = new GraphicAncestry((AncestryNode) card.origin, true);
+					// ancestry.setAlignmentX(Component.CENTER_ALIGNMENT);
+					add(ancestry);
+				}
+				GraphicCard graphicCard = new GraphicCard(card);
+				graphicCard.setAlignmentX(Component.CENTER_ALIGNMENT);
+				add(graphicCard);
 			}
-			GraphicCard graphicCard = new GraphicCard(card);
-			graphicCard.setAlignmentX(Component.CENTER_ALIGNMENT);
-			add(graphicCard);
-			/*if (card.acquired && card.hasAncestry())
-				add(Box.createRigidArea(new Dimension(0, Util.TIC)));*/
 		}
 	}
 
@@ -250,9 +252,9 @@ public class Diagram {
 			this.card = card;
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			Color backgroundColor = Color.white;
-			if (card.person.getId().equals(graph.getStartId()))
+			if (card.person.getId().equals(graph.getStartId())) {
 				backgroundColor = Color.orange;
-			else if (card.acquired) {
+			} else if (card.acquired) {
 				backgroundColor = new Color(0xCCCCCC);
 			}
 			setBackground(backgroundColor);
@@ -267,9 +269,13 @@ public class Diagram {
 			addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					box.removeAll();
-					fulcrumId = card.person.getId();
-					paintDiagram();
+					/*if (card.person.getId().equals(fulcrumId))
+						JOptionPane.showMessageDialog(null, card.person.getId()+": "+Util.essence(card.person));
+					else {*/
+						box.removeAll();
+						fulcrumId = card.person.getId();
+						paintDiagram();
+					//}
 				}
 			});
 		}
@@ -284,6 +290,23 @@ public class Diagram {
 				int[] pY = { 0, 0, 7, 12 };
 				g.fillPolygon(pX, pY, 4);
 			}
+		}
+	}
+
+	// Replacement for person with multiple marriages
+	class Asterisk extends JPanel {
+		IndiCard card;
+		Asterisk(IndiCard card) {
+			this.card = card;
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			add(Box.createRigidArea(new Dimension(20, 25)));
+			//setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
+		}
+		@Override
+		protected void paintComponent(Graphics g) {
+			g.setColor(Color.orange);
+			g.setFont(new Font("Segoe UI", Font.BOLD, 40));
+			g.drawString("*", 0, 35);
 		}
 	}
 
@@ -327,7 +350,7 @@ public class Diagram {
 		GraphicAncestry(AncestryNode node, boolean acquired) {
 			this.node = node;
 			setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-			// setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
+			setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
 			if (node.miniFather != null)
 				add(new GraphicMiniCard(node.miniFather));
 			if (node.isCouple())
@@ -366,7 +389,7 @@ public class Diagram {
 	
 	class GraphicMiniCard extends JButton {
 		GraphicMiniCard(MiniCard miniCard) {
-			super(String.valueOf(miniCard.ancestry));
+			super(String.valueOf(miniCard.amount));
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			setBackground(Color.white);
 			Color color = Color.gray;
