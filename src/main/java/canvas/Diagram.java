@@ -43,18 +43,16 @@ public class Diagram {
 	String fulcrumId;
 	JScrollPane scrollPane;
 	JPanel box;
-	static int shiftX = 50;
-	static int shiftY = 50;
+	static int shiftX = 30;
+	static int shiftY = 30;
 
 	Diagram() throws Exception {
 		
 		// Redefine spacing constants
 		Util.PADDING = 10;
-		Util.MARGIN = 25;
 		Util.SPACE = 70;
 		Util.TIC = 0;
 		Util.GAP = 20;
-		Util.PLAY = 10;
 		
 		// Swing stuff
 		JFrame frame = new JFrame();
@@ -69,17 +67,17 @@ public class Diagram {
 		frame.setVisible(true);
 		
 		// Parse a Gedcom file
-		File file = new File("src/main/resources/family1.ged");
+		File file = new File("src/main/resources/tree2.ged");
 		Gedcom gedcom = new ModelParser().parseGedcom(file);
 		gedcom.createIndexes();
 
 		// Directly open a Json file
-		//String content = FileUtils.readFileToString(new File("src/main/resources/family2.json"), "UTF-8");
+		//String content = FileUtils.readFileToString(new File("src/main/resources/tree2.json"), "UTF-8");
 		//Gedcom gedcom = new JsonParser().fromJson(content);
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(2).maxUncles(1).displaySiblings(true).maxDescendants(2);
+		graph.showFamily(0).maxAncestors(3).maxUncles(2).displaySiblings(true).maxDescendants(4);
 		fulcrumId = "I1";
 
 		paintDiagram();
@@ -156,7 +154,7 @@ public class Diagram {
 		graph.arrange();
 
 		box.setLayout(null); // This non-layout let the nodes in absolute position
-		box.setPreferredSize(new Dimension(graph.width + shiftX * 2, graph.height + shiftY * 2));
+		box.setPreferredSize(new Dimension((int)graph.width + shiftX * 2, (int)graph.height + shiftY * 2));
 
 		// Draw the lines
 		box.add(new GraphicLines());
@@ -168,7 +166,7 @@ public class Diagram {
 				UnitNode unitNode = ((GraphicUnitNode) compoNode).unitNode;
 				//compoNode.setLocation(unitNode.x + shiftX, unitNode.y + shiftY);
 				//compoNode.setSize(unitNode.width, compoNode.getHeight());
-				compoNode.setBounds(unitNode.x + shiftX, unitNode.y + shiftY, unitNode.width, compoNode.getHeight());
+				compoNode.setBounds((int)unitNode.x + shiftX, (int)unitNode.y + shiftY, (int)unitNode.width, compoNode.getHeight());
 				//
 				GraphicUnitNode graphicUnitNode = (GraphicUnitNode) compoNode;
 				if (unitNode.isCouple()) {
@@ -176,17 +174,17 @@ public class Diagram {
 					Component husband = graphicUnitNode.getComponent(1);
 					husband.setLocation(0, husband.getY());
 					Component bond = graphicUnitNode.getComponent(0);
-					bond.setLocation(unitNode.husband.width, unitNode.height/2);
+					bond.setLocation((int)unitNode.husband.width, (int)unitNode.height/2);
 					Component wife = graphicUnitNode.getComponent(2);
 					//wife.setLocation(unitNode.husband.width+bond.getWidth()- (unitNode.marriageDate!=null?Util.TIC*2:0),wife.getY()); //ok
-					wife.setLocation(unitNode.husband.width + bond.getWidth(), wife.getY());
+					wife.setLocation((int)unitNode.husband.width + bond.getWidth(), wife.getY());
 				}
 			} else if (compoNode instanceof GraphicAncestry) {
 				AncestryNode ancestry = (AncestryNode) ((GraphicAncestry) compoNode).node;
-				compoNode.setLocation(ancestry.x + shiftX, ancestry.y + shiftY);
+				compoNode.setLocation((int)ancestry.x + shiftX, (int)ancestry.y + shiftY);
 			} else if (compoNode instanceof GraphicProgeny) {
 				ProgenyNode progeny = (ProgenyNode) ((GraphicProgeny) compoNode).progenyNode;
-				compoNode.setLocation(progeny.x + shiftX, progeny.y + shiftY);
+				compoNode.setLocation((int)progeny.x + shiftX, (int)progeny.y + shiftY);
 			}
 		}
 		scrollPane.validate(); // Update scrollbars
@@ -256,7 +254,7 @@ public class Diagram {
 			// Death ribbon
 			g.setColor(Color.black);
 			if (card.dead) {
-				int[] pX = { card.width - 12, card.width - 7, card.width, card.width };
+				int[] pX = { (int)card.width - 12, (int)card.width - 7, (int)card.width, (int)card.width };
 				int[] pY = { 0, 0, 7, 12 };
 				g.fillPolygon(pX, pY, 4);
 			}
@@ -341,8 +339,8 @@ public class Diagram {
 			// Draw the T lines
 			if (node.isCouple()) {
 				g.setColor(Color.lightGray);
-				g.drawLine(0, node.centerRelY(), node.width, node.centerRelY()); // Horizontal
-				g.drawLine(node.centerRelX(), node.centerRelY(), node.centerRelX(), node.height); // Vertical
+				g.drawLine(0, (int)node.centerRelY(), (int)node.width, (int)node.centerRelY()); // Horizontal
+				g.drawLine((int)node.centerRelX(), (int)node.centerRelY(), (int)node.centerRelX(), (int)node.height); // Vertical
 			}
 		}
 	}
@@ -388,17 +386,17 @@ public class Diagram {
 
 	class GraphicLines extends JPanel {
 		GraphicLines() {
-			setBounds(shiftX, shiftY, graph.width, graph.height);
-			setBorder(BorderFactory.createLineBorder(Color.green, 1));
+			setBounds(shiftX, shiftY, (int)graph.width, (int)graph.height);
+			//setBorder(BorderFactory.createLineBorder(Color.green, 1));
 			setOpaque(false);
 		}
 		@Override
 		protected void paintComponent(Graphics g) {
 			for (Line line : graph.getLines()) {
-				int x1 = line.x1;
-				int y1 = line.y1;
-				int x2 = line.x2;
-				int y2 = line.y2;
+				int x1 = (int)line.x1;
+				int y1 = (int)line.y1;
+				int x2 = (int)line.x2;
+				int y2 = (int)line.y2;
 				Graphics2D g2 = (Graphics2D) g;
 				CubicCurve2D c = new CubicCurve2D.Double();
 				/*//int transY = (int) -(Math.pow((Math.abs(x2-x1)-x1),2)/  Math.pow(y2-y1,4));
