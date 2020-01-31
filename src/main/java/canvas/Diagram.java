@@ -77,7 +77,7 @@ public class Diagram {
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(3).maxUncles(2).displaySiblings(true).maxDescendants(4);
+		graph.showFamily(0).maxAncestors(2).maxUncles(1).displaySiblings(true).maxDescendants(2);
 		fulcrumId = "I1";
 
 		paintDiagram();
@@ -188,9 +188,7 @@ public class Diagram {
 			}
 		}
 		scrollPane.validate(); // Update scrollbars
-		
 		// pr(graph.toString());
-		// box.revalidate(); // Make the cards appear on the canvas
 		box.repaint(); // Redraw all the canvas
 	}
 	
@@ -399,11 +397,6 @@ public class Diagram {
 				int y2 = (int)line.y2;
 				Graphics2D g2 = (Graphics2D) g;
 				CubicCurve2D c = new CubicCurve2D.Double();
-				/*//int transY = (int) -(Math.pow((Math.abs(x2-x1)-x1),2)/  Math.pow(y2-y1,4));
-				//int transY = (int) -Math.pow( x1-Math.abs(x2-x1), 2) -  (y2-y1);
-				int transY = y1+ Math.abs(x2-x1)/2;
-				g.setColor(Color.red);
-				g.drawLine(x2-4, transY, x2+4, transY);*/
 				g.setColor(Color.lightGray);
 				c.setCurve(x1, y1, x1, y2 , x2, y1, x2, y2);
 				g2.draw(c);
