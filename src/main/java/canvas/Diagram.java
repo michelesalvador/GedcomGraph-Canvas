@@ -11,6 +11,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.geom.CubicCurve2D;
 import java.io.File;
 import javax.swing.BorderFactory;
@@ -77,7 +78,7 @@ public class Diagram {
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(2).maxUncles(1).displaySiblings(true).maxDescendants(2);
+		graph.showFamily(0).maxAncestors(3).maxUncles(2).displaySiblings(true).maxDescendants(3);
 		fulcrumId = "I1";
 
 		paintDiagram();
@@ -158,7 +159,6 @@ public class Diagram {
 
 		// Draw the lines
 		box.add(new GraphicLines());
-
 
 		// Place the nodes in definitve position on the canvas
 		for (Component compoNode : box.getComponents()) {
@@ -267,6 +267,20 @@ public class Diagram {
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			add(Box.createRigidArea(new Dimension(20, 25)));
 			//setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
+			addMouseListener(new MouseListener() {
+				@Override
+				public void mouseClicked(MouseEvent arg0) {
+					JOptionPane.showMessageDialog(null, card.person.getId()+": "+Util.essence(card.person));
+				}
+				@Override
+				public void mouseEntered(MouseEvent arg0) {}
+				@Override
+				public void mouseExited(MouseEvent arg0) {}
+				@Override
+				public void mousePressed(MouseEvent arg0) {}
+				@Override
+				public void mouseReleased(MouseEvent arg0) {}
+			});
 		}
 		@Override
 		protected void paintComponent(Graphics g) {
