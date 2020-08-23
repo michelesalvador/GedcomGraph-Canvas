@@ -219,7 +219,7 @@ public class Diagram {
 			this.card = card;
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			Color backgroundColor = Color.white;
-			if (card.person.getId().equals(graph.getStartId())) {
+			if (card.person.getId().equals(fulcrumId)) {
 				backgroundColor = Color.orange;
 			} else if (card.acquired) {
 				backgroundColor = new Color(0xCCCCCC);

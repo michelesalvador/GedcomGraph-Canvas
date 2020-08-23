@@ -4,7 +4,7 @@ _GedcomGraph canvas_ is a minimal graphical implementation of the Java library [
 
 _GedcomGraph canvas_ is a Gradle project written with Eclipse, and realized with Java AWT/Swing.
 
-_GedcomGraph canvas_ can open a Gedcom file (*.ged) and generate a graphic browsable output of a genealogical tree.
+_GedcomGraph canvas_ can open a GEDCOM file (*.ged) and generate a graphic browsable output of a genealogical tree.
 
 <img width="100%" src="tree_example.png">
 
