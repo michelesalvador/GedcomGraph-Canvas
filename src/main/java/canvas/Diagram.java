@@ -25,6 +25,7 @@ import javax.swing.JScrollPane;
 import javax.swing.OverlayLayout;
 import org.apache.commons.io.FileUtils;
 import org.folg.gedcom.model.Gedcom;
+import org.folg.gedcom.model.Person;
 import org.folg.gedcom.parser.JsonParser;
 import org.folg.gedcom.parser.ModelParser;
 import graph.gedcom.AncestryNode;
@@ -41,7 +42,7 @@ import static graph.gedcom.Util.pr;
 public class Diagram {
 
 	Graph graph;
-	String fulcrumId;
+	Person fulcrum;
 	JScrollPane scrollPane;
 	JPanel box;
 	static int shiftX = 30;
@@ -79,7 +80,7 @@ public class Diagram {
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
 		graph.showFamily(0).maxAncestors(3).maxUncles(2).displaySiblings(true).maxDescendants(3);
-		fulcrumId = "I1";
+		fulcrum = gedcom.getPerson("I1");
 
 		paintDiagram();
 	}
@@ -90,10 +91,7 @@ public class Diagram {
 
 	private void paintDiagram() {
 
-		if (!graph.startFrom(fulcrumId)) {
-			JOptionPane.showMessageDialog(null, "Can't find a person with this id.");
-			return;
-		}
+		graph.startFrom(fulcrum);
 
 		// Place the nodes on the canvas in random position
 		box.setLayout(new OverlayLayout(box)); // This layout let the nodes auto-size
@@ -219,7 +217,7 @@ public class Diagram {
 			this.card = card;
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			Color backgroundColor = Color.white;
-			if (card.person.getId().equals(fulcrumId)) {
+			if (card.person.equals(fulcrum)) {
 				backgroundColor = Color.orange;
 			} else if (card.acquired) {
 				backgroundColor = new Color(0xCCCCCC);
@@ -236,11 +234,11 @@ public class Diagram {
 			addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					if (card.person.getId().equals(fulcrumId))
+					if (card.person.equals(fulcrum))
 						JOptionPane.showMessageDialog(null, card.person.getId()+": "+Util.essence(card.person));
 					else {
 						box.removeAll();
-						fulcrumId = card.person.getId();
+						fulcrum = card.person;
 						paintDiagram();
 					}
 				}
@@ -389,7 +387,7 @@ public class Diagram {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					box.removeAll();
-					fulcrumId = miniCard.person.getId();
+					fulcrum = miniCard.person;
 					paintDiagram();
 				}
 			});
