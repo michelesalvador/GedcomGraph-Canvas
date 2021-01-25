@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>GedcomGraph-canvas</name>
+	<name>GedcomGraph Canvas</name>
 	<comment>Minimal graphical implementation of the GedcomGraph library, made with Java AWT and Swing</comment>
 	<projects>
+		<project>GedcomGraph</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

@@ -79,7 +79,7 @@ public class Diagram {
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(3).maxUncles(2).displaySiblings(true).maxDescendants(3);
+		graph.showFamily(0).maxAncestors(4).maxUncles(4).displaySiblings(true).maxDescendants(3);
 		fulcrum = gedcom.getPerson("I1");
 
 		paintDiagram();
