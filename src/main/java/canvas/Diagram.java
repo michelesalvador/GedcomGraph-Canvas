@@ -14,6 +14,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.CubicCurve2D;
 import java.io.File;
+import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -21,20 +22,25 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.OverlayLayout;
 import javax.swing.Timer;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import org.apache.commons.io.FileUtils;
+import org.folg.gedcom.model.EventFact;
 import org.folg.gedcom.model.Gedcom;
 import org.folg.gedcom.model.Person;
 import org.folg.gedcom.parser.JsonParser;
 import org.folg.gedcom.parser.ModelParser;
 import graph.gedcom.PersonNode;
+import graph.gedcom.Bond;
 import graph.gedcom.CurveLine;
 import graph.gedcom.FamilyNode;
+import graph.gedcom.Metric;
 import graph.gedcom.Graph;
 import graph.gedcom.Util;
 import graph.gedcom.Line;
-import graph.gedcom.Node;
 import static graph.gedcom.Util.*;
 
 public class Diagram {
@@ -43,28 +49,32 @@ public class Diagram {
 	Person fulcrum;
 	Person firstFulcrum;
 	JScrollPane scrollPane;
-	JPanel box;
+	Box box;
 	Component lines;
-	static int shiftX = 60;
-	static int shiftY = 40;
+	static int shiftX = 0;
+	static int shiftY = 0;
 	private Timer timer;
+	float scale = 1;
 
 	Diagram() throws Exception {
-		
-		// Redefine spacing constants
-		VERTICAL_SPACE = 70;
-		FAMILY_WIDTH = 30;
+
+		// Redefine some spacing constants
+		HORIZONTAL_SPACE = 10;
+		BOND_WIDTH = 15;
+		MINI_BOND_WIDTH = 10;
+		MARRIAGE_WIDTH = 30;
 		MARRIAGE_HEIGHT = 20;
-		
+
 		// Swing stuff
 		JFrame frame = new JFrame();
 		frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
+		//frame.setSize(new Dimension(1700,800));
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		
+
 		// Header
 		JPanel header = new JPanel();
 		frame.getContentPane().add(header, BorderLayout.PAGE_START);
-		
+
 		// A button to play the timer
 		JButton buttonPlay = new JButton("Play");
 		header.add(buttonPlay);
@@ -79,7 +89,7 @@ public class Diagram {
 				}
 			}
 		});
-		
+
 		// A button to reset the diagram
 		JButton buttonReset = new JButton("Reset");
 		header.add(buttonReset);
@@ -96,34 +106,49 @@ public class Diagram {
 			}
 		});
 
-		box = new JPanel();
-		box.setBackground(Color.darkGray);
+		// A slider to scale the diagram
+		JSlider scaleSlider = new JSlider(1, 100, 100);
+		header.add(scaleSlider);
+		scaleSlider.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				if( !scaleSlider.getValueIsAdjusting() ) {
+					scale = scaleSlider.getValue() / 100f;
+					box.setPreferredSize(new Dimension( // Only to resize the scrollbars
+							(int)((graph.getWidth() + shiftX * 2) * scale), (int)((graph.getHeight() + shiftY * 2) * scale)));
+					scrollPane.getViewport().revalidate(); // Redraws box and scrollbars
+					box.repaint(); // Whether box is smaller than scrollPane
+				}
+			}
+		});
+
+		box = new Box();
 		scrollPane = new JScrollPane(box);
 		frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
 		frame.setVisible(true);
-		
+
 		// Parse a Gedcom file
-	/*	File file = new File("src/main/resources/tree2.ged");
+		/*File file = new File("src/main/resources/tree2.ged");
 		Gedcom gedcom = new ModelParser().parseGedcom(file);
 		gedcom.createIndexes();*/
 
-		// Directly open a Json file
-		String content = FileUtils.readFileToString(new File("src/main/resources/overlap.json"), "UTF-8");
+		// Directly open a JSON file
+		String content = FileUtils.readFileToString(new File("src/main/resources/tree2.json"), "UTF-8");
 		Gedcom gedcom = new JsonParser().fromJson(content);
 
 		// Create the diagram model from the Gedcom object
 		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(5).maxGreatUncles(2).displaySpouses(true).maxDescendants(3).maxSiblingsNephews(0).maxUnclesCousins(0);
+		graph.showFamily(0).maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
 		fulcrum = gedcom.getPerson("I1");
 		firstFulcrum = fulcrum;
 
-		timer = new Timer(40, e -> {  // 40 = 25 fps
+		timer = new Timer(40, e -> {  // 40 milliseconds = 25 fps
 			if( graph.playNodes() ) // Calculate next position
 				displaceDiagram();
 			else
 				timer.stop();
 		});
-		
+
 		startDiagram();
 	}
 
@@ -131,33 +156,42 @@ public class Diagram {
 		new Diagram();
 	}
 
+	class Box extends JPanel {
+		Box() {
+			setBackground(Color.darkGray);
+			setOpaque(true);
+		}
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			Graphics2D g2 = (Graphics2D) g;
+			g2.scale(scale, scale);
+		}
+	}
+
 	// Initialize the diagram the first time and clicking on a card
 	private void startDiagram() {
 
-		// Let the diagram find the persons to display
+		// Build the diagram of this person
 		graph.startFrom(fulcrum);
 
 		// Place the nodes on the canvas without position
 		box.setLayout(new OverlayLayout(box)); // This layout let the nodes auto-size
-		//box.setLayout(null);
-		for( Node node : graph.getNodes() ) {
-			if( node instanceof PersonNode ) {
-				PersonNode personNode = (PersonNode)node;
-				if( personNode.person.equals(fulcrum) && !personNode.isFulcrumNode() )
-					box.add(new Asterisk(personNode));
-				else if( personNode.mini )
-					box.add(new GraphicMiniCard(personNode));
-				else
-					box.add(new GraphicPerson(personNode));
-			}
+		for( PersonNode personNode : graph.getPersonNodes() ) {
+			if( personNode.person.equals(fulcrum) && !personNode.isFulcrumNode() )
+				box.add(new Asterisk(personNode));
+			else if( personNode.mini )
+				box.add(new GraphicMiniCard(personNode));
+			else
+				box.add(new GraphicPerson(personNode));
 		}
 		box.validate(); // To calculate the dimensions of child componenets
 
 		// Get the dimensions of each node
 		for( Component compoNode : box.getComponents() ) {
-			Node node = ((GraphicNode)compoNode).node;
-			node.width = compoNode.getWidth();
-			node.height = compoNode.getHeight();
+			Metric metric = ((GraphicMetric)compoNode).metric;
+			metric.width = compoNode.getWidth();
+			metric.height = compoNode.getHeight();
 		}
 
 		// Let the diagram initialize nodes and lines
@@ -165,16 +199,17 @@ public class Diagram {
 
 		box.setLayout(null); // This non-layout let the nodes in absolute position
 		
-		// Add marriages nodes
-		graph.getNodes().forEach(node -> {
-			if( node instanceof FamilyNode ) {
-				box.add(new GraphicFamily((FamilyNode)node), 0);
-			}
+		// Add marriage bonds
+		graph.getBonds().forEach(bond -> {
+			box.add(new GraphicBond(bond), 0);
 		});
 		
+		if( graph.needMaxBitmap() )
+			graph.setMaxBitmap(3000, 3000); // In Android these values come from canvas.getMaximumBitmapWidth() and canvas.getMaximumBitmapHeight()
+
 		// First raw calculation of nodes position
 		graph.placeNodes();
-		
+
 		// Add the lines
 		lines = box.add(new GraphicLines());
 
@@ -182,71 +217,52 @@ public class Diagram {
 		displaceDiagram();
 		box.repaint(); // Clears dirty
 
-		timer.start();
+		//timer.start();
 	}
 
 	// Visible position of nodes and lines
 	void displaceDiagram() {
 		for( Component compoNode : box.getComponents() ) {
-			if( compoNode instanceof GraphicNode ) {
-				Node node = ((GraphicNode)compoNode).node;
-				compoNode.setLocation((int)node.x + shiftX, (int)node.y + shiftY);
-				//compoNode.setSize(unitNode.width, compoNode.getHeight());
+			if( compoNode instanceof GraphicMetric ) {
+				Metric metric = ((GraphicMetric)compoNode).metric;
+				compoNode.setLocation((int)metric.x + shiftX, (int)metric.y + shiftY);
 			}
 		}
 		lines.setBounds(shiftX, shiftY, (int)graph.getWidth(), (int)graph.getHeight());
 		lines.repaint();
-		box.setPreferredSize(new Dimension((int)graph.getWidth() + shiftX * 2, (int)graph.getHeight() + shiftY * 2));
+		box.setPreferredSize(new Dimension(
+				(int)((graph.getWidth() + shiftX * 2) * scale), (int)((graph.getHeight() + shiftY * 2) * scale)));
 		scrollPane.validate(); // Update scrollbars
 	}
 
 	// Graphical rappresentation of a single node
-	abstract class GraphicNode extends JLabel {
-		Node node;
-		GraphicNode(Node node) {
-			this.node = node;
+	abstract class GraphicMetric extends JLabel {
+		Metric metric;
+		GraphicMetric(Metric metric) {
+			this.metric = metric;
 			//setBorder(BorderFactory.createLineBorder(Color.cyan, 1));
 			setLayout(new OverlayLayout(this)); // Admit overlapping of components
 			setFont(new Font("Segoe UI", Font.PLAIN, 11));
 			setOpaque(true);
-			addMouseListener(new MouseAdapter() { // Mouse down / mouse up
-				@Override
-				public void mousePressed(MouseEvent e) {
-					node.drag = true;
-				}
-				@Override
-				public void mouseReleased(MouseEvent e) {
-					node.drag = false;
-				}
-			});
-			addMouseMotionListener(new MouseAdapter() { // Mouse drag
-				@Override
-				public void mouseDragged(MouseEvent e) {
-					float x = getX() + e.getX() - shiftX;
-					float y = getY() + e.getY() - shiftY;
-					node.x = x;
-					node.y = y;
-				}
-			});
 		}
 	}
 
 	// Graphical realization of an individual card
-	class GraphicPerson extends GraphicNode {
+	class GraphicPerson extends GraphicMetric {
 		GraphicPerson(PersonNode node) {
 			super(node);
-			setText(/*graph.getNodes().indexOf(node) +" "+*/ node.toString());
+			setText(node.toString());
 			Color backgroundColor = Color.white;
-			if (node.person.equals(fulcrum)) {
+			if( node.person.equals(fulcrum) ) {
 				backgroundColor = Color.orange;
-			} else if (node.acquired) {
+			} else if( node.acquired ) {
 				backgroundColor = new Color(0xCCCCCC);
 			}
 			setBackground(backgroundColor);
 			Color borderColor = Color.gray;
-			if (Util.sex(node.person) == 1) {
+			if( sex(node.person) == 1 ) {
 				borderColor = Color.blue;
-			} else if (Util.sex(node.person) == 2) {
+			} else if( sex(node.person) == 2 ) {
 				borderColor = Color.pink;
 			}
 			setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(borderColor, 2),
@@ -268,8 +284,8 @@ public class Diagram {
 		protected void paintBorder(Graphics g) {
 			super.paintBorder(g);
 			// Death ribbon
-			if( ((PersonNode)node).dead ) {
-				int[] pX = { (int)node.width - 12, (int)node.width - 7, (int)node.width, (int)node.width };
+			if( ((PersonNode)metric).dead ) {
+				int[] pX = { (int)metric.width - 12, (int)metric.width - 7, (int)metric.width, (int)metric.width };
 				int[] pY = { 0, 0, 7, 12 };
 				g.fillPolygon(pX, pY, 4);
 			}
@@ -277,7 +293,7 @@ public class Diagram {
 	}
 
 	// Replacement for any person who is actually fulcrum
-	class Asterisk extends GraphicNode {
+	class Asterisk extends GraphicMetric {
 		Asterisk(PersonNode node) {
 			super(node);
 			setFont(new Font("Segoe UI", Font.BOLD, 50));
@@ -294,59 +310,57 @@ public class Diagram {
 		}
 	}
 
-	class GraphicFamily extends GraphicNode {
-		GraphicFamily(FamilyNode familyNode) {
-			super(familyNode);
+	class GraphicBond extends GraphicMetric {
+		Bond bond;
+		GraphicBond(Bond bond) {
+			super(bond);
+			this.bond = bond;
 			//setBorder(BorderFactory.createLineBorder(Color.yellow, 1));
-			setSize((int)node.width, (int)node.height);
+			setSize((int)bond.width, (int)bond.height);
 			addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                	JOptionPane.showMessageDialog(null, "Family " + node.spouseFamily.getId());
-                }
-            });
+				@Override
+				public void mouseClicked(MouseEvent e) {
+					JOptionPane.showMessageDialog(null, "Family " + bond.familyNode.spouseFamily.getId());
+				}
+			});
 		}
 		@Override
 		protected void paintComponent(Graphics g) {
-			FamilyNode familyNode = (FamilyNode) node;
-			// Draw the vertical line from marriage
-			if (familyNode.hasChildren()) {
-				g.setColor(Color.lightGray);
-				g.drawLine((int)node.centerRelX(), (int)node.centerRelY(), (int)node.centerRelX(), (int)node.height);
-			}
+			FamilyNode familyNode = bond.familyNode;
 			// Draw the marriage
-			if (familyNode.marriageDate != null) {
+			if( bond.marriageDate != null ) {
+				int y = (int)bond.centerRelY() - MARRIAGE_HEIGHT / 2;
 				g.setColor(new Color(0xFFFFFF));
-				g.fillOval(0, 0, (int)node.width, MARRIAGE_HEIGHT);
+				g.fillOval(0, y, (int)bond.width, MARRIAGE_HEIGHT);
 				g.setColor(new Color(0xAAAAAA));
-				g.drawOval(0, 0, (int)node.width, MARRIAGE_HEIGHT);
+				g.drawOval(0, y, (int)bond.width, MARRIAGE_HEIGHT);
 				g.setColor(Color.black);
 				g.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-				g.drawString(familyNode.marriageYear(), 0, 13);
+				g.drawString(bond.marriageYear(), 0, y + 13);
 			} else {
 				g.setColor(Color.lightGray);
 				int diameter = HEARTH_DIAMETER;
-				if (node.mini)
+				if( familyNode.mini )
 					diameter = MINI_HEARTH_DIAMETER;
-				g.fillOval((int)node.centerRelX()-diameter/2, (int)node.centerRelY()-diameter/2, diameter, diameter);
+				g.fillOval((int)bond.centerRelX() - diameter / 2, (int)bond.centerRelY() - diameter / 2, diameter, diameter);
 			}
 		}
 	}
-	
-	class GraphicMiniCard extends GraphicNode {
+
+	class GraphicMiniCard extends GraphicMetric {
 		GraphicMiniCard(PersonNode node) {
 			super(node);
-			setText(String.valueOf(node.amount));
+			setText(node.amount > 100 ? "100+" : String.valueOf(node.amount));
 			Color backgroundColor = node.acquired ? new Color(0xCCCCCC) : Color.white;
 			setBackground(backgroundColor);
 			Color borderColor = Color.gray;
-			if (Util.sex(node.person) == 1)
+			if( sex(node.person) == 1 )
 				borderColor = Color.blue;
 			else
 				borderColor = Color.pink;
 			setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(borderColor, 1),
 					BorderFactory.createLineBorder(backgroundColor, 4)));
-			addMouseListener( new MouseAdapter() {
+			addMouseListener(new MouseAdapter() {
 				@Override
 				public void mouseClicked(MouseEvent e) {
 					box.removeAll();
@@ -358,6 +372,7 @@ public class Diagram {
 	}
 
 	class GraphicLines extends JPanel {
+		Color[] colors = { Color.lightGray, Color.RED, Color.CYAN, Color.MAGENTA, Color.GREEN, Color.PINK, Color.BLACK, Color.YELLOW, Color.BLUE, Color.ORANGE };
 		GraphicLines() {
 			setBounds(shiftX, shiftY, (int)graph.getWidth(), (int)graph.getHeight());
 			setBorder(BorderFactory.createLineBorder(Color.orange, 1));
@@ -365,21 +380,55 @@ public class Diagram {
 		}
 		@Override
 		protected void paintComponent(Graphics g) {
-			for( Line line : graph.getLines() ) {
-				int x1 = (int)line.x1;
-				int y1 = (int)line.y1;
-				int x2 = (int)line.x2;
-				int y2 = (int)line.y2;
-				g.setColor(Color.lightGray);
-				if( line instanceof CurveLine ) {
-					Graphics2D g2 = (Graphics2D) g;
-					CubicCurve2D c = new CubicCurve2D.Double();
-					c.setCurve(x1, y1, x1, y2 , x2, y1, x2, y2);
-					g2.draw(c);
-				} else {
-					g.drawLine(x1, y1, x2, y2);
+			int i = 0;
+			for( Set<Line> group : graph.getLines() ) {
+				g.setColor(colors[i % colors.length]);
+				for( Line line : group ) {
+					int x1 = (int)line.x1;
+					int y1 = (int)line.y1;
+					int x2 = (int)line.x2;
+					int y2 = (int)line.y2;
+					//g.setColor(Color.lightGray);
+					if( line instanceof CurveLine ) {
+						Graphics2D g2 = (Graphics2D) g;
+						CubicCurve2D cc = new CubicCurve2D.Double();
+						cc.setCurve(x1, y1, x1, y2 , x2, y1, x2, y2);
+						g2.draw(cc);
+					} else {
+						g.drawLine(x1, y1, x2, y2);
+					}
+				}
+				i++;
+			}
+			// Rectangle to see the size of one group of lines
+			g.setColor(Color.GRAY);
+			g.drawRect(0, 0, graph.getMaxBitmapWidth(), graph.getMaxBitmapHeight());
+		}
+	}
+
+	/** The sex of a person.
+	 * @param person The dude
+	 * @return int 0 no sex, 1 male, 2 female, 3 undefined, 4 other
+	 */
+	private int sex(Person person) {
+		for (EventFact ef : person.getEventsFacts()) {
+			if (ef.getTag() != null && ef.getTag().equals("SEX")) {
+				if (ef.getValue() == null)
+					return 4; // SEX tag exists but without value
+				else {
+					switch (ef.getValue()) {
+					case "M":
+						return 1;
+					case "F":
+						return 2;
+					case "U":
+						return 3;
+					default:
+						return 4; // other value
+					}
 				}
 			}
 		}
+		return 0; // no SEX tag
 	}
 }
