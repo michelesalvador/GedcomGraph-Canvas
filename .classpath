@@ -3,6 +3,7 @@
 	<classpathentry kind="src" output="bin/main" path="src/main/java"/>
 	<classpathentry kind="src" output="bin/main" path="src/main/resources"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="/GedcomGraph"/>
 	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
 	<classpathentry kind="output" path="bin/default"/>
 </classpath>

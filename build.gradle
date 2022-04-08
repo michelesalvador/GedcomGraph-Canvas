@@ -1,6 +1,6 @@
 apply plugin: 'java'
 
-version = '2'
+version = '2.1'
 
 repositories {
 	jcenter()
