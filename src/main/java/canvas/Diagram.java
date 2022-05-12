@@ -10,6 +10,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -58,7 +59,7 @@ public class Diagram {
 	static int shiftY = 0;
 	private Timer timer;
 	float scale = 1;
-	ComponentOrientation orient = ComponentOrientation.RIGHT_TO_LEFT; // LEFT_TO_RIGHT;
+	ComponentOrientation orient = ComponentOrientation.LEFT_TO_RIGHT; // RIGHT_TO_LEFT
 
 	Diagram() throws Exception {
 
@@ -70,20 +71,46 @@ public class Diagram {
 		MARRIAGE_HEIGHT = 20;
 		*/
 
+		// Parse a Gedcom file
+		/*File file = new File("src/main/resources/tree2.ged");
+		Gedcom gedcom = new ModelParser().parseGedcom(file);
+		gedcom.createIndexes();*/
+
+		// Directly open a JSON file
+		String content = FileUtils.readFileToString(new File("src/main/resources/tree2.json"), "UTF-8");
+		Gedcom gedcom = new JsonParser().fromJson(content);
+
+		// Create the diagram model from the Gedcom object
+		graph = new Graph(gedcom);
+		graph.showFamily(0).maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
+		fulcrum = gedcom.getPerson("I1");
+		firstFulcrum = fulcrum;
+
+		int speed = 40; // 40 milliseconds = 25 fps
+
 		// Swing stuff
 		JFrame frame = new JFrame();
-		//frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
-		frame.setSize(new Dimension(1500,700));
+		frame.setSize(Toolkit.getDefaultToolkit().getScreenSize());
+		//frame.setSize(new Dimension(1000,500));
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		// Header
 		JPanel header = new JPanel();
 		frame.getContentPane().add(header, BorderLayout.PAGE_START);
 
+		// A button to display the next person's diagram
+		JButton buttonNext = new JButton("Next");
+		header.add(buttonNext);
+		buttonNext.addActionListener(actionEvent -> {
+			box.removeAll();
+			int nextIndex = gedcom.getPeople().indexOf(fulcrum) + 1;
+			fulcrum = gedcom.getPeople().get(nextIndex);
+			startDiagram();
+		});
+
 		// A button to play the timer
 		JButton buttonPlay = new JButton("Play");
 		header.add(buttonPlay);
-		buttonPlay.setBounds(300, 10, 100, 30);
 		buttonPlay.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -95,20 +122,38 @@ public class Diagram {
 			}
 		});
 
+		// A little class just to store a couple of variables
+		class Player {
+			boolean running;
+			int index = gedcom.getPeople().indexOf(fulcrum);;
+		}
+		Player player = new Player();
+
+		// A button to play all the diagrams
+		JButton buttonPlayAll = new JButton("Play all");
+		header.add(buttonPlayAll);
+		buttonPlayAll.addActionListener(actionEvent -> {
+			if( player.running ) {
+				player.running = false;
+				timer.stop();
+			} else {
+				player.running = true;
+				timer.start();
+			}
+		});
+
 		// A button to reset the diagram
 		JButton buttonReset = new JButton("Reset");
 		header.add(buttonReset);
-		buttonReset.setBounds(150, 10, 100, 30);
-		buttonReset.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if( timer.isRunning() ) {
-					timer.stop();
-				}
-				box.removeAll();
-				fulcrum = firstFulcrum;
-				startDiagram();
+		buttonReset.addActionListener(actionEvent -> {
+			if( timer.isRunning() ) {
+				timer.stop();
 			}
+			player.index = gedcom.getPeople().indexOf(firstFulcrum);
+			player.running = false;
+			box.removeAll();
+			fulcrum = firstFulcrum;
+			startDiagram();
 		});
 
 		// A slider to scale the diagram
@@ -132,25 +177,16 @@ public class Diagram {
 		frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
 		frame.setVisible(true);
 
-		// Parse a Gedcom file
-		/*File file = new File("src/main/resources/tree2.ged");
-		Gedcom gedcom = new ModelParser().parseGedcom(file);
-		gedcom.createIndexes();*/
-
-		// Directly open a JSON file
-		String content = FileUtils.readFileToString(new File("src/main/resources/tree2.json"), "UTF-8");
-		Gedcom gedcom = new JsonParser().fromJson(content);
-
-		// Create the diagram model from the Gedcom object
-		graph = new Graph(gedcom);
-		graph.showFamily(0).maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
-		fulcrum = gedcom.getPerson("I1");
-		firstFulcrum = fulcrum;
-
-		timer = new Timer(40, e -> {  // 40 milliseconds = 25 fps
+		timer = new Timer(speed, e -> {
 			if( graph.playNodes() ) // Calculate next position
 				displaceDiagram();
-			else
+			else if( player.running && player.index < gedcom.getPeople().size() - 1 ) { // Automatic display of the next person
+				box.removeAll();
+				player.index++;
+				fulcrum = gedcom.getPeople().get(player.index);
+				startDiagram();
+				timer.start();
+			} else
 				timer.stop();
 		});
 
@@ -258,8 +294,10 @@ public class Diagram {
 
 	// Graphical realization of an individual card
 	class GraphicPerson extends GraphicMetric {
+		PersonNode node;
 		GraphicPerson(PersonNode node) {
 			super(node);
+			this.node = node;
 			setText(node.toString());
 			Color backgroundColor = Color.white;
 			if( node.person.equals(fulcrum) ) {
@@ -280,7 +318,7 @@ public class Diagram {
 				@Override
 				public void mouseClicked(MouseEvent e) {
 					if (node.person.equals(fulcrum))
-						JOptionPane.showMessageDialog(null, node.person.getId()+": "+Util.essence(node.person));
+						JOptionPane.showMessageDialog(null, node.person.getId() + ": " + Util.essence(node.person));
 					else {
 						box.removeAll();
 						fulcrum = node.person;
@@ -298,6 +336,11 @@ public class Diagram {
 				int[] pY = { 0, 0, 7, 12 };
 				g.fillPolygon(pX, pY, 4);
 			}
+		}
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			setText(node.toString());
 		}
 	}
 
@@ -384,7 +427,7 @@ public class Diagram {
 	class GraphicLines extends JPanel {
 		List<Set<Line>> lineGroups;
 		Stroke stroke;
-		Color[] colors = { Color.lightGray, Color.RED, Color.CYAN, Color.MAGENTA, Color.GREEN, Color.PINK, Color.BLACK, Color.YELLOW, Color.BLUE, Color.ORANGE };	
+		Color[] colors = { Color.lightGray, Color.RED, Color.CYAN, Color.MAGENTA, Color.GREEN, Color.PINK, Color.YELLOW, Color.BLUE, Color.ORANGE };
 		GraphicLines(List<Set<Line>> lineGroups, Stroke stroke) {
 			this.lineGroups = lineGroups;
 			this.stroke = stroke;
