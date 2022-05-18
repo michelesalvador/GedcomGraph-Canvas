@@ -63,14 +63,6 @@ public class Diagram {
 
 	Diagram() throws Exception {
 
-		/* Redefine some spacing constants
-		HORIZONTAL_SPACE = 10;
-		BOND_WIDTH = 15;
-		MINI_BOND_WIDTH = 10;
-		MARRIAGE_WIDTH = 30;
-		MARRIAGE_HEIGHT = 20;
-		*/
-
 		// Parse a Gedcom file
 		/*File file = new File("src/main/resources/tree2.ged");
 		Gedcom gedcom = new ModelParser().parseGedcom(file);
@@ -85,8 +77,6 @@ public class Diagram {
 		graph.showFamily(0).maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
 		fulcrum = gedcom.getPerson("I1");
 		firstFulcrum = fulcrum;
-
-		int speed = 40; // 40 milliseconds = 25 fps
 
 		// Swing stuff
 		JFrame frame = new JFrame();
@@ -108,20 +98,6 @@ public class Diagram {
 			startDiagram();
 		});
 
-		// A button to play the timer
-		JButton buttonPlay = new JButton("Play");
-		header.add(buttonPlay);
-		buttonPlay.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (timer.isRunning()) {
-					timer.stop();
-				} else {
-					timer.start();
-				}
-			}
-		});
-
 		// A little class just to store a couple of variables
 		class Player {
 			boolean running;
@@ -130,7 +106,7 @@ public class Diagram {
 		Player player = new Player();
 
 		// A button to play all the diagrams
-		JButton buttonPlayAll = new JButton("Play all");
+		JButton buttonPlayAll = new JButton("Display all");
 		header.add(buttonPlayAll);
 		buttonPlayAll.addActionListener(actionEvent -> {
 			if( player.running ) {
@@ -177,10 +153,8 @@ public class Diagram {
 		frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
 		frame.setVisible(true);
 
-		timer = new Timer(speed, e -> {
-			if( graph.playNodes() ) // Calculate next position
-				displaceDiagram();
-			else if( player.running && player.index < gedcom.getPeople().size() - 1 ) { // Automatic display of the next person
+		timer = new Timer(0, e -> { // 40 milliseconds = 25 fps
+			if( player.running && player.index < gedcom.getPeople().size() - 1 ) { // Automatic display of the next person
 				box.removeAll();
 				player.index++;
 				fulcrum = gedcom.getPeople().get(player.index);
@@ -246,20 +220,17 @@ public class Diagram {
 		});
 
 		if( graph.needMaxBitmap() )
-			graph.setMaxBitmap(3000, 3000); // In Android these values come from canvas.getMaximumBitmapWidth() and canvas.getMaximumBitmapHeight()
+			graph.setMaxBitmap(5000, 5000); // In Android these values come from canvas.getMaximumBitmapWidth() and canvas.getMaximumBitmapHeight()
 
-		// First raw calculation of nodes position
+		// Calculate the final nodes position
 		graph.placeNodes();
 
 		// Add the lines
 		lines = box.add(new GraphicLines(graph.getLines(), new BasicStroke(2)));
 		backLines = box.add(new GraphicLines(graph.getBackLines(), new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{3}, 0)));
 
-		// First visible displacement of the diagram
 		displaceDiagram();
 		box.repaint(); // Clears dirty
-
-		//timer.start();
 	}
 
 	// Visible position of nodes and lines
