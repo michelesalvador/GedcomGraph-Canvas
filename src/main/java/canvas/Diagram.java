@@ -219,8 +219,8 @@ public class Diagram {
 			box.add(new GraphicBond(bond), 0);
 		});
 
-		if( graph.needMaxBitmap() )
-			graph.setMaxBitmap(5000, 5000); // In Android these values come from canvas.getMaximumBitmapWidth() and canvas.getMaximumBitmapHeight()
+		if( graph.needMaxBitmapSize() )
+			graph.setMaxBitmapSize(1000); // In Android this value comes from canvas.getMaximumBitmapWidth()
 
 		// Calculate the final nodes position
 		graph.placeNodes();
@@ -438,7 +438,7 @@ public class Diagram {
 			}
 			// Rectangle to see the size of one group of lines
 			g.setColor(Color.GRAY);
-			g.drawRect(0, 0, graph.getMaxBitmapWidth(), graph.getMaxBitmapHeight());
+			g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
 		}
 	}
 }
