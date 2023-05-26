@@ -1,6 +1,6 @@
 apply plugin: 'java'
 
-version = '3.1'
+version = '3.2'
 
 repositories {
 	jcenter()
@@ -8,6 +8,6 @@ repositories {
 
 dependencies {
 	implementation fileTree(include: ['*.jar'], dir: 'lib')
-	implementation 'org.familysearch.gedcom:gedcom:1.13.0'
+	implementation 'org.familysearch.gedcom:gedcom:1.14.0'
 	implementation 'commons-io:commons-io:2.11.0'
 }
