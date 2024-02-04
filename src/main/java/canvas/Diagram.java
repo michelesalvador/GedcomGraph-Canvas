@@ -71,7 +71,7 @@ public class Diagram {
 
         // Creates the diagram model from the Gedcom object
         graph = new Graph();
-        graph.setGedcom(gedcom).showFamily(0);
+        graph.setGedcom(gedcom).setLayoutDirection(true).showFamily(0);
         graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
         fulcrum = gedcom.getPerson("I1");
         firstFulcrum = fulcrum;
