@@ -72,8 +72,11 @@ public class Diagram {
         // Creates the diagram model from the Gedcom object
         graph = new Graph();
         graph.setGedcom(gedcom).setLayoutDirection(true).showFamily(0);
-        graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
+        graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5).displayNumbers(true);
         fulcrum = gedcom.getPerson("I1");
+        if (fulcrum == null && !gedcom.getPeople().isEmpty()) {
+            fulcrum = gedcom.getPeople().get(0);
+        }
         firstFulcrum = fulcrum;
 
         // Swing stuff
@@ -441,11 +444,11 @@ public class Diagram {
                             g.drawLine(width - x1, y1, width - x2, y2);
                     }
                 }
-                i++;
+                // i++; // Uncomment to change line color
             }
             // Rectangle to see the size of one group of lines
-            g.setColor(Color.GRAY);
-            g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
+            // g.setColor(Color.GRAY);
+            // g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
         }
     }
 }
