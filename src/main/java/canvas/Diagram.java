@@ -1,5 +1,10 @@
 package canvas;
 
+import static graph.gedcom.Util.HEARTH_DIAMETER;
+import static graph.gedcom.Util.MARRIAGE_HEIGHT;
+import static graph.gedcom.Util.MARRIAGE_WIDTH;
+import static graph.gedcom.Util.MINI_HEARTH_DIAMETER;
+
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -14,9 +19,11 @@ import java.awt.Toolkit;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.CubicCurve2D;
+import java.awt.geom.QuadCurve2D;
 import java.io.File;
 import java.util.List;
 import java.util.Set;
+
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -29,20 +36,23 @@ import javax.swing.OverlayLayout;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
 import org.apache.commons.io.FileUtils;
 import org.folg.gedcom.model.Gedcom;
 import org.folg.gedcom.model.Person;
 import org.folg.gedcom.parser.JsonParser;
 import org.folg.gedcom.parser.ModelParser;
-import graph.gedcom.PersonNode;
+
 import graph.gedcom.Bond;
 import graph.gedcom.CurveLine;
+import graph.gedcom.DuplicateLine;
 import graph.gedcom.FamilyNode;
-import graph.gedcom.Metric;
 import graph.gedcom.Graph;
-import graph.gedcom.Util;
 import graph.gedcom.Line;
-import static graph.gedcom.Util.*;
+import graph.gedcom.Metric;
+import graph.gedcom.PersonNode;
+import graph.gedcom.Util;
+import graph.gedcom.Util.Gender;
 
 public class Diagram {
 
@@ -53,6 +63,7 @@ public class Diagram {
     Box box;
     Component lines;
     Component backLines; // Dashed lines of multi partners
+    Component duplicateLines; // Colored lines to connect duplicated persons
     static int shiftX = 0;
     static int shiftY = 0;
     private Timer timer;
@@ -72,7 +83,8 @@ public class Diagram {
         // Creates the diagram model from the Gedcom object
         graph = new Graph();
         graph.setGedcom(gedcom).setLayoutDirection(true).showFamily(0);
-        graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5).displayNumbers(true);
+        graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5).displayNumbers(true)
+                .displayDuplicateLines(true);
         fulcrum = gedcom.getPerson("I1");
         if (fulcrum == null && !gedcom.getPeople().isEmpty()) {
             fulcrum = gedcom.getPeople().get(0);
@@ -93,10 +105,12 @@ public class Diagram {
         JButton buttonNext = new JButton("Next");
         header.add(buttonNext);
         buttonNext.addActionListener(actionEvent -> {
-            box.removeAll();
             int nextIndex = gedcom.getPeople().indexOf(fulcrum) + 1;
-            fulcrum = gedcom.getPeople().get(nextIndex);
-            startDiagram();
+            if (nextIndex < gedcom.getPeople().size()) {
+                box.removeAll();
+                fulcrum = gedcom.getPeople().get(nextIndex);
+                startDiagram();
+            }
         });
 
         // A little class just to store a couple of variables
@@ -195,9 +209,7 @@ public class Diagram {
         // Places the nodes on the canvas without position
         box.setLayout(new OverlayLayout(box)); // This layout lets the nodes auto-size
         for (PersonNode personNode : graph.getPersonNodes()) {
-            if (personNode.person.equals(fulcrum) && !personNode.isFulcrumNode())
-                box.add(new Asterisk(personNode));
-            else if (personNode.mini)
+            if (personNode.mini)
                 box.add(new GraphicMiniCard(personNode));
             else
                 box.add(new GraphicPerson(personNode));
@@ -231,6 +243,7 @@ public class Diagram {
         lines = box.add(new GraphicLines(graph.getLines(), new BasicStroke(2)));
         BasicStroke dashedStroke = new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 3 }, 0);
         backLines = box.add(new GraphicLines(graph.getBackLines(), dashedStroke));
+        duplicateLines = box.add(new GraphicDuplicateLines());
 
         displaceDiagram();
         box.repaint(); // Clears dirty
@@ -245,6 +258,8 @@ public class Diagram {
                         (int)metric.y + shiftY);
             }
         }
+        duplicateLines.setBounds(shiftX, shiftY, (int)graph.getWidth(), (int)graph.getHeight());
+        duplicateLines.repaint();
         lines.setBounds(shiftX, shiftY, (int)graph.getWidth(), (int)graph.getHeight());
         lines.repaint();
         backLines.setBounds(shiftX, shiftY, (int)graph.getWidth(), (int)graph.getHeight());
@@ -321,24 +336,6 @@ public class Diagram {
         }
     }
 
-    // Replacement for any person who is actually fulcrum
-    class Asterisk extends GraphicMetric {
-        Asterisk(PersonNode node) {
-            super(node);
-            setFont(new Font("Segoe UI", Font.BOLD, 50));
-            setForeground(Color.orange);
-            setText("*");
-            setOpaque(false);
-            // setBorder(BorderFactory.createLineBorder(Color.red, 1));
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    JOptionPane.showMessageDialog(null, node.person.getId() + ": " + node);
-                }
-            });
-        }
-    }
-
     class GraphicBond extends GraphicMetric {
         Bond bond;
 
@@ -382,7 +379,12 @@ public class Diagram {
         GraphicMiniCard(PersonNode node) {
             super(node);
             setText(node.amount > 100 ? "100+" : String.valueOf(node.amount));
-            Color backgroundColor = node.acquired ? new Color(0xCCCCCC) : Color.white;
+            Color backgroundColor = Color.white;
+            if (node.person.equals(fulcrum)) {
+                backgroundColor = Color.ORANGE;
+            } else if (node.acquired) {
+                backgroundColor = new Color(0xCCCCCC);
+            }
             setBackground(backgroundColor);
             Color borderColor = Color.gray;
             Gender gender = Gender.getGender(node.person);
@@ -449,6 +451,25 @@ public class Diagram {
             // Rectangle to see the size of one group of lines
             // g.setColor(Color.GRAY);
             // g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
+        }
+    }
+
+    class GraphicDuplicateLines extends JPanel {
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            setOpaque(false);
+            Graphics2D g2 = (Graphics2D)graphics;
+            for (DuplicateLine line : graph.getDuplicateLines()) {
+                Color color = Color.GRAY;
+                if (line.gender == Gender.MALE)
+                    color = Color.BLUE;
+                else if (line.gender == Gender.FEMALE)
+                    color = Color.PINK;
+                graphics.setColor(color);
+                g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                QuadCurve2D quadcurve = new QuadCurve2D.Float(line.x1, line.y1, line.x3, line.y3, line.x2, line.y2);
+                g2.draw(quadcurve);
+            }
         }
     }
 }
