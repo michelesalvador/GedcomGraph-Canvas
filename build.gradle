@@ -3,11 +3,11 @@ apply plugin: 'java'
 version = '3.9'
 
 repositories {
-	jcenter()
+    mavenCentral()
 }
 
 dependencies {
-	implementation fileTree(include: ['*.jar'], dir: 'lib')
-	implementation 'org.familysearch.gedcom:gedcom:1.14.0'
-	implementation 'commons-io:commons-io:2.18.0'
+    implementation 'org.familysearch.gedcom:gedcom:1.14.0'
+    implementation 'commons-io:commons-io:2.18.0'
+    implementation project(':GedcomGraph')
 }
