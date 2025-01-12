@@ -1,21 +1,13 @@
 package canvas;
 
-import static graph.gedcom.Util.HEARTH_DIAMETER;
-import static graph.gedcom.Util.MARRIAGE_HEIGHT;
-import static graph.gedcom.Util.MARRIAGE_WIDTH;
-import static graph.gedcom.Util.MINI_HEARTH_DIAMETER;
+import graph.gedcom.*;
+import org.apache.commons.io.FileUtils;
+import org.folg.gedcom.model.Gedcom;
+import org.folg.gedcom.model.Person;
+import org.folg.gedcom.parser.JsonParser;
 
-import java.awt.BasicStroke;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.ComponentOrientation;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Stroke;
-import java.awt.Toolkit;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.CubicCurve2D;
@@ -24,35 +16,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Set;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSlider;
-import javax.swing.OverlayLayout;
-import javax.swing.Timer;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-
-import org.apache.commons.io.FileUtils;
-import org.folg.gedcom.model.Gedcom;
-import org.folg.gedcom.model.Person;
-import org.folg.gedcom.parser.JsonParser;
-import org.folg.gedcom.parser.ModelParser;
-
-import graph.gedcom.Bond;
-import graph.gedcom.CurveLine;
-import graph.gedcom.DuplicateLine;
-import graph.gedcom.FamilyNode;
-import graph.gedcom.Graph;
-import graph.gedcom.Line;
-import graph.gedcom.Metric;
-import graph.gedcom.PersonNode;
-import graph.gedcom.Util;
-import graph.gedcom.Util.Gender;
+import static graph.gedcom.Util.*;
 
 public class Diagram {
 
@@ -83,11 +47,11 @@ public class Diagram {
         // Creates the diagram model from the Gedcom object
         graph = new Graph();
         graph.setGedcom(gedcom).setLayoutDirection(true).showFamily(0);
-        graph.maxAncestors(5).maxGreatUncles(5).displaySpouses(true).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5).displayNumbers(true)
-                .displayDuplicateLines(true);
+        graph.maxAncestors(5).maxGreatUncles(5).maxDescendants(5).maxSiblingsNephews(5).maxUnclesCousins(5);
+        graph.displaySpouses(true).displayNumbers(true).displayDuplicateLines(true);
         fulcrum = gedcom.getPerson("I1");
         if (fulcrum == null && !gedcom.getPeople().isEmpty()) {
-            fulcrum = gedcom.getPeople().get(0);
+            fulcrum = gedcom.getPeople().getFirst();
         }
         firstFulcrum = fulcrum;
 
@@ -116,7 +80,7 @@ public class Diagram {
         // A little class just to store a couple of variables
         class Player {
             boolean running;
-            int index = gedcom.getPeople().indexOf(fulcrum);;
+            int index = gedcom.getPeople().indexOf(fulcrum);
         }
         Player player = new Player();
 
@@ -150,16 +114,13 @@ public class Diagram {
         // A slider to scale the diagram
         JSlider scaleSlider = new JSlider(1, 100, 100);
         header.add(scaleSlider);
-        scaleSlider.addChangeListener(new ChangeListener() {
-            @Override
-            public void stateChanged(ChangeEvent e) {
-                if (!scaleSlider.getValueIsAdjusting()) {
-                    scale = scaleSlider.getValue() / 100f;
-                    box.setPreferredSize(new Dimension( // Only to resize the scrollbars
-                            (int)((graph.getWidth() + shiftX * 2) * scale), (int)((graph.getHeight() + shiftY * 2) * scale)));
-                    scrollPane.getViewport().revalidate(); // Redraws box and scrollbars
-                    box.repaint(); // Whether box is smaller than scrollPane
-                }
+        scaleSlider.addChangeListener(event -> {
+            if (!scaleSlider.getValueIsAdjusting()) {
+                scale = scaleSlider.getValue() / 100f;
+                box.setPreferredSize(new Dimension( // Only to resize the scrollbars
+                        (int)((graph.getWidth() + shiftX * 2) * scale), (int)((graph.getHeight() + shiftY * 2) * scale)));
+                scrollPane.getViewport().revalidate(); // Redraws box and scrollbars
+                box.repaint(); // Whether box is smaller than scrollPane
             }
         });
 
@@ -214,7 +175,7 @@ public class Diagram {
             else
                 box.add(new GraphicPerson(personNode));
         }
-        box.validate(); // To calculate the dimensions of child componenets
+        box.validate(); // To calculate the dimensions of child components
 
         // Gets the dimensions of each node
         for (Component compoNode : box.getComponents()) {
@@ -229,9 +190,7 @@ public class Diagram {
         box.setLayout(null); // This non-layout lets the nodes in absolute position
 
         // Adds marriage bonds
-        graph.getBonds().forEach(bond -> {
-            box.add(new GraphicBond(bond), 0);
-        });
+        graph.getBonds().forEach(bond -> box.add(new GraphicBond(bond), 0));
 
         if (graph.needMaxBitmapSize())
             graph.setMaxBitmapSize(1000); // In Android this value comes from canvas.getMaximumBitmapWidth()
@@ -241,7 +200,7 @@ public class Diagram {
 
         // Adds the lines
         lines = box.add(new GraphicLines(graph.getLines(), new BasicStroke(2)));
-        BasicStroke dashedStroke = new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 3 }, 0);
+        BasicStroke dashedStroke = new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{ 3 }, 0);
         backLines = box.add(new GraphicLines(graph.getBackLines(), dashedStroke));
         duplicateLines = box.add(new GraphicDuplicateLines());
 
@@ -268,8 +227,10 @@ public class Diagram {
         scrollPane.validate(); // Update scrollbars
     }
 
-    // Graphical rappresentation of a single node
-    abstract class GraphicMetric extends JLabel {
+    /**
+     * Graphical representation of a single node.
+     */
+    abstract static class GraphicMetric extends JLabel {
         Metric metric;
 
         GraphicMetric(Metric metric) {
@@ -281,7 +242,9 @@ public class Diagram {
         }
     }
 
-    // Graphical realization of an individual card
+    /**
+     * Graphical realization of a person card.
+     */
     class GraphicPerson extends GraphicMetric {
         PersonNode node;
 
@@ -336,7 +299,7 @@ public class Diagram {
         }
     }
 
-    class GraphicBond extends GraphicMetric {
+    static class GraphicBond extends GraphicMetric {
         Bond bond;
 
         GraphicBond(Bond bond) {
@@ -430,7 +393,6 @@ public class Diagram {
                     int y1 = (int)line.y1;
                     int x2 = (int)line.x2;
                     int y2 = (int)line.y2;
-                    // g.setColor(Color.lightGray);
                     g2.setStroke(stroke);
                     if (line instanceof CurveLine) {
                         CubicCurve2D cc = new CubicCurve2D.Double();
@@ -446,11 +408,11 @@ public class Diagram {
                             g.drawLine(width - x1, y1, width - x2, y2);
                     }
                 }
-                // i++; // Uncomment to change line color
+                //i++; // Uncomment to change line color
             }
             // Rectangle to see the size of one group of lines
-            // g.setColor(Color.GRAY);
-            // g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
+            //g.setColor(Color.GRAY);
+            //g.drawRect(0, 0, (int)graph.getMaxBitmapSize(), (int)graph.getMaxBitmapSize());
         }
     }
 
@@ -467,8 +429,8 @@ public class Diagram {
                     color = Color.PINK;
                 graphics.setColor(color);
                 g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                QuadCurve2D quadcurve = new QuadCurve2D.Float(line.x1, line.y1, line.x3, line.y3, line.x2, line.y2);
-                g2.draw(quadcurve);
+                QuadCurve2D quadCurve = new QuadCurve2D.Float(line.x1, line.y1, line.x3, line.y3, line.x2, line.y2);
+                g2.draw(quadCurve);
             }
         }
     }
